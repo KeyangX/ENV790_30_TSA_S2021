@@ -1,7 +1,7 @@
 ---
 title: "ENV 790.30 - Time Series Analysis for Energy Data | Spring 2021"
 subtitle: "Assignment 2 - Due date 01/27/21"
-author: "Student Name"
+author: "Keyang Xue"
 output: pdf_document
 geometry: margin=2.54cm
 ---
@@ -21,7 +21,10 @@ R packages needed for this assignment:"forecast","tseries", and "dplyr". Install
 
 ```{r}
 #Load/install required package here
-
+library(forecast)
+library(tseries)
+library(dplyr)
+library(readxl)
 ```
 
 
@@ -29,23 +32,65 @@ R packages needed for this assignment:"forecast","tseries", and "dplyr". Install
 
 Consider the data provided in the spreadsheet "Table_10.1_Renewable_Energy_Production_and_Consumption_by_Source.xlsx" on our **Data** folder. The data comes from the US Energy Information and Administration and corresponds to the January 2021 Monthly Energy Review. The spreadsheet is ready to be used. Use the command $read.table()$ to import the data in R or $panda.read\_excel()$ in Python (note that you will need to import pandas package). }
 
-```{r}
+```{r import}
 #Importing data set
-
+raw_energy <- read_excel(path='/Users/apple/Desktop/790 Time Series Analysis/ENV790_30_TSA_S2021/Data/Table_10.1_Renewable_Energy_Production_and_Consumption_by_Source.xlsx', na = "NA", skip = 9)
 ```
+
+
+
+
+```{r}
+```
+
 
 
 ## Question 1
 You will work only with the following columns: Total Biomass Energy Production, Total Renewable Energy Production, Hydroelectric Power Consumption. Create a data frame structure with these three time series only. Use the command head() to verify your data.
 
+```{r trim}
+energy <- cbind.data.frame(raw_energy[,1],raw_energy[,4:6])
+head(energy)
+num_energy <- sapply(energy[2:575,2:4],as.numeric) %>% as.data.frame()
+date <- 
+num_energy <- cbind()
+head(num_energy)
+```
+
+
 ## Question 2
 Transform your data frame in a time series object and specify the starting point and frequency of the time series using the function ts().
+```{r ts}
+ts_energy <- ts(num_energy)
+head(ts_energy)
+```
 
 ## Question 3
 Compute mean and standard deviation for these three series.
+```{r mean and SD}
+mean(ts_energy[,1])
+sd(ts_energy[,1])
+mean(ts_energy[,2])
+sd(ts_energy[,2])
+mean(ts_energy[,3])
+sd(ts_energy[,3])
+```
+
 
 ## Question 4
 Display and interpret the time series plot for each of these variables. Try to make your plot as informative as possible by writing titles, labels, etc. For each plot add a horizontal line at the mean of each series in a different color.
+
+```{r plot}
+ggplot(num_energy, aes(x= energy$Month[2:575], y=`Total Biomass Energy Production`)) +
+            geom_line(color="blue")+ xlab("Time") + ylab("Total Biomass Energy Production (Trillion Btu)") + labs(title = 'Historical Total Biomass Energy Porduction Data') + geom_hline(yintercept=mean(ts_energy[,1]),col="red",lwd=0.3)
+
+ggplot(num_energy, aes(x= energy$Month[2:575], y=`Total Renewable Energy Production`)) +
+            geom_line(color="black")+ xlab("Time") + ylab("Total Renewable Energy Production (Trillion Btu)") + labs(title = 'Historical Total Renewable Energy Porduction Data') + geom_hline(yintercept=mean(ts_energy[,2]),col="red",lwd=0.3)
+
+ggplot(num_energy, aes(x= energy$Month[2:575], y=`Hydroelectric Power Consumption`)) +
+            geom_line(color="dark gray")+ xlab("Time") + ylab("Hydroelectric Power Consumption (Trillion Btu)") + labs(title = 'Historical Hydroelectric Power Consumption Data') + geom_hline(yintercept=mean(ts_energy[,3]),col="red",lwd=0.3)
+```
+
 
 ## Question 5
 Compute the correlation between these three series. Are they significantly correlated? Explain your answer.
