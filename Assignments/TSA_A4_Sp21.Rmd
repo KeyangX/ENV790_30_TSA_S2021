@@ -1,7 +1,7 @@
 ---
 title: "ENV 790.30 - Time Series Analysis for Energy Data | Spring 2021"
 subtitle: "Assignment 4 - Due date 02/25/21"
-author: "Student Name"
+author: "Keyang Xue"
 output: pdf_document
 geometry: margin=2.54cm
 ---
@@ -21,9 +21,13 @@ Consider the same data you used for A2 from the spreadsheet "Table_10.1_Renewabl
 
 R packages needed for this assignment:"forecast","tseries", and "Kendall". Install these packages, if you haven't done yet. Do not forget to load them before running your script, since they are NOT default packages.\\
 
-```{r}
+```{r package, message=FALSE}
 #Load/install required package here
-
+library(tseries)
+library(Kendall)
+library(forecast)
+library(readxl)
+library(ggplot2)
 ```
 
 
