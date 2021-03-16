@@ -29,6 +29,7 @@ Packages needed for this assignment: "forecast","tseries". Do not forget to load
 library(forecast)  
 library(tseries)
 library(astsa)
+library(sarima)
 ```
 
 
@@ -51,9 +52,17 @@ Describe the important characteristics of the sample autocorrelation function (A
 Recall that the non-seasonal ARIMA is described by three parameters ARIMA$(p,d,q)$ where $p$ is the order of the autoregressive component, $d$ is the number of times the series need to be differenced to obtain stationarity and $q$ is the order of the moving average component. If we don't need to difference the series, we don't need to specify the "I" part and we can use the short version, i.e., the ARMA$(p,q)$. Consider three models: ARMA(1,0), ARMA(0,1) and ARMA(1,1) with parameters $\phi=0.6$ and $\theta= 0.9$. The $\phi$ refers to the AR coefficient and the $\theta$ refers to the MA coefficient. Use R to generate $n=100$ observations from each of these three models
 
 ```{r}
-sim1<-arima.sim(list(order = c(1,0,0), ar = 0.6),n = 100,rand.gen=rnorm)
-sim2<-arima.sim(list(order = c(0,0,1), ma = 0.9),n = 100,rand.gen=rnorm)
-sim3<-arima.sim(list(order = c(1,0,1), ar = 0.6, ma = 0.9),n = 100,rand.gen=rnorm)
+set.seed(1234)
+sim1<-arima.sim(list(order = c(1,0,0), ar = 0.6),n = 100)
+sim2<-arima.sim(list(order = c(0,0,1), ma = 0.9),n = 100)
+sim3<-arima.sim(list(order = c(1,0,1), ar = 0.6, ma = 0.9),n = 100)
+```
+
+```{r}
+set.seed(12345)
+sim4<-arima.sim(list(order = c(1,0,0), ar = 0.6),n = 1000)
+sim5<-arima.sim(list(order = c(0,0,1), ma = 0.9),n = 1000)
+sim6<-arima.sim(list(order = c(1,0,1), ar = 0.6, ma = 0.9),n = 1000)
 ```
 
 
@@ -67,7 +76,7 @@ sim3<-arima.sim(list(order = c(1,0,1), ar = 0.6, ma = 0.9),n = 100,rand.gen=rnor
 
 \item Look at the ACFs and PACFs. Imagine you had these plots for a data set and you were asked to identify the model, i.e., is it AR, MA or ARMA and the order of each component. Would you be identify them correctly? Explain your answer.
 
-> Answer:since the simulation generates random values for each model everytime, it is hard to get an ACF plot that decays exponentially and a PACF plot that cuts off after lag 1 for ARMA(1,0), an ACF plot that cuts off after lag 1 and a PACF plot that decays exponenetially for ARMA(0,1), and an ACF plot and a PACF plot that both decay exponentially for ARMA(1,1).
+> Answer:an exponentially decaying ACF plot and a PACF plot that cuts off after lag 1 indicates an AR process; an ACF plot that cuts off after lag 1 indicates a MA process while a PACF plot with a cut-off contradicts this conclusion. It is hard to identify an ARMA process from plots because the characteristics of AR and MA are combined.
 
 \item Compare the ACF and PACF values R computed with the theoretical values you provided for the coefficients. Do they match? Explain your answer.
 
@@ -76,12 +85,7 @@ sim3<-arima.sim(list(order = c(1,0,1), ar = 0.6, ma = 0.9),n = 100,rand.gen=rnor
 
 \item Increase number of observations to $n=1000$ and repeat parts (a)-(d).
 
-```{r}
-sim4<-arima.sim(list(order = c(1,0,0), ar = 0.6),n = 1000,rand.gen=rnorm)
-sim5<-arima.sim(list(order = c(0,0,1), ma = 0.9),n = 1000,rand.gen=rnorm)
-sim6<-arima.sim(list(order = c(1,0,1), ar = 0.6, ma = 0.9),n = 1000,rand.gen=rnorm)
 
-```
 
 \end{enumerate}
 
@@ -94,9 +98,9 @@ sim3acf <- Acf(sim3)
 
 ```{r 100PACF}
 par(mfrow=c(1,3))
-sim1pacf <- Pacf(sim1)
-sim2pacf <- Pacf(sim2)
-sim3pacf <- Pacf(sim3)
+sim1pacf <- Acf(sim1,type = "partial")
+sim2pacf <- Acf(sim2,type = "partial")
+sim3pacf <- Acf(sim3,type = "partial")
 ```
 
 ```{r 1000ACFPACF}
@@ -105,13 +109,13 @@ sim4acf <- Acf(sim4)
 sim5acf <- Acf(sim5)
 sim6acf <- Acf(sim6)
 
-sim4pacf <- Pacf(sim4)
-sim5pacf <- Pacf(sim5)
-sim6pacf <- Pacf(sim6)
+sim4pacf <- Acf(sim4, type = "partial")
+sim5pacf <- Acf(sim5, type = "partial")
+sim6pacf <- Acf(sim6, type = "partial")
 ```
 
-(c)since the simulation generates random values for each model everytime, it is hard to get an ACF plot that decays exponentially and a PACF plot that cuts off after lag 1 for ARMA(1,0), an ACF plot that cuts off after lag 1 and a PACF plot that decays exponenetially for ARMA(0,1), and an ACF plot and a PACF plot that both decay exponentially for ARMA(1,1).
-(d)the PACF matches the phi=0.6 while the theta=0.9 does not match the ACF because the phi represents the autocorrelation while the theta represents the relationship among yt and at-1.
+(c)an exponentially decaying ACF plot and a PACF plot that cuts off after lag 1 means this is an AR process; an ACF plot that cuts off after lag 1 indicates a MA process while a PACF plot with a cut-off contradicts this conclusion. It is hard to identify an ARMA process from plots because the characteristics of AR and MA are combined.
+(d)the PACF matches the phi=0.6 better than the previous case when n=100. The theta=0.9 still does not match the ACF because the phi represents the autocorrelation while the theta represents the relationship among yt and at-1.
 
 ## Q3
 
@@ -125,7 +129,7 @@ $p=1,d=0,q=1,P=1,D=0,Q=0$
 
 \item Also from the equation what are the values of the parameters, i.e., model coefficients. 
 
-$\phi_1=0.7$, $\theta_1= 0.1$,$\phi_12= -0.25$
+$\phi_1=0.7$, $\theta_1= 0.1$,$\phi12= -0.25$
 
 \end{enumerate}
 ## Q4
@@ -134,10 +138,12 @@ Plot the ACF and PACF of a seasonal ARIMA$(0, 1)\times(1, 0)_{12}$ model with $\
 
 ```{r}
 par(mfrow=c(1,2))
-season_sim1<-sarima.sim(ar = NULL, d = 0, ma = 0.5, sar = 0.8, D = 0, sma = NULL,S = 12, n = 10000,rand.gen=rnorm)
+set.seed(123456)
+season_sim1<-sarima.sim(ar = NULL, d = 0, ma = 0.5, sar = 0.8, D = 0, sma = NULL,S = 12, n = 10000)
 
 season_sim1acf <- Acf(season_sim1)
 
-season_sim1pacf <- Pacf(season_sim1)
+season_sim1pacf <- Acf(season_sim1, type = "partial")
 ```
-There are multiple spikes at seasonal lags in the ACF plot and one single spike at seasonal lags in the PACF plot, indicating there is a SAR process.
+
+The order of non-seasonal component would not be identified through these graphs since the ACF for non-seasonal lags shows a cut-off after lag 1, indicating this is a MA process while the PACF also shows a cut-off after lag 1, indicating an AR process. The order of seasonal components are identifiable through these plots - there are multiple spikes at seasonal lags in the ACF plot and one single spike at seasonal lags in the PACF plot, indicating there is a SAR process.
