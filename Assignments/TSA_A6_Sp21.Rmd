@@ -1,7 +1,7 @@
 ---
 title: "ENV 790.30 - Time Series Analysis for Energy Data | Spring 2021"
 subtitle: "Assignment 6 - Due date 03/26/21"
-author: "Student Name"
+author: "Keyang Xue"
 output: pdf_document
 geometry: margin=2.54cm
 header-includes:
@@ -19,9 +19,16 @@ When you have completed the assignment, **Knit** the text and code into a single
 
 ## Set up
 
-```{r}
-#Load/install required package here
+```{r, message=FALSE}
+library(forecast)  
+library(tseries)
+library(dplyr)
+library(lubridate)
+library(Kendall)
+```
 
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(echo = TRUE,tidy.opts=list(width.cutoff=80), tidy=FALSE) 
 ```
 
 ## Importing and processing the data set
@@ -34,17 +41,60 @@ Packages needed for this assignment: "forecast","tseries". Do not forget to load
 
 Import the csv file and create a time series object for natural gas. Make you sure you specify the **start=** and **frequency=** arguments. Plot the time series over time, ACF and PACF.
 
-```{r}
+```{r import  data}
+electricity_generation <- read.csv(file="../Data/Net_generation_United_States_all_sectors_monthly.csv",
+                                   header=TRUE,skip=4)
+nvar <- ncol(electricity_generation) - 1
+nobs <- nrow(electricity_generation)
 
+#create date object and rename columns
+electricity_generation_processed <-
+  electricity_generation %>%
+  mutate( Month = my(Month) ) %>% 
+  rename( All.fuels = all.fuels..utility.scale..thousand.megawatthours ) %>% 
+  rename( Coal = coal.thousand.megawatthours ) %>% 
+  rename( NaturalGas = natural.gas.thousand.megawatthours ) %>% 
+  rename( Nuclear = nuclear.thousand.megawatthours ) %>% 
+  rename( ConventionalHydro = conventional.hydroelectric.thousand.megawatthours ) %>% 
+  arrange( Month )
+
+head(electricity_generation_processed)
+```
+
+```{r ts}
+ts_NG_gen <- ts(electricity_generation_processed[,4],
+                start=c(year(electricity_generation_processed$Month[1]),
+                        month(electricity_generation_processed$Month[1])),
+                frequency=12) 
+ 
+head(ts_NG_gen,15)
+tail(ts_NG_gen,15)
+```
+```{r plot}
+ts.plot(ts_NG_gen)
+
+par(mfrow=c(1,2))
+NG_ACF <- Acf(ts_NG_gen, lag.max = 40, plot = TRUE)
+NG_PACF <- Pacf(ts_NG_gen, lag.max = 40, plot = TRUE)
 ```
 
 ### Q2
 
 Using the $decompose()$ or $stl()$ and the $seasadj()$ functions create a series without the seasonal component, i.e., a deseasonalized natural gas series. Plot the deseasonalized series over time and corresponding ACF and PACF. Compare with the plots obtained in Q1.
 
-```{r}
+```{r decompose}
+decompose_NG_gen <- stl(ts_NG_gen, s.window = "periodic")
+plot(decompose_NG_gen)
 
+deseason_NG_gen <- seasadj(decompose_NG_gen)
+ts.plot(deseason_NG_gen)
+
+par(mfrow=c(1,2))
+deseason_NG_ACF <- Acf(deseason_NG_gen, lag = 40, plot = TRUE)
+deseason_NG_PACF <- Pacf(deseason_NG_gen, lag = 40)
 ```
+
+The time series plot does not show seasonality any more because it does not have cyclical/seasonal pattern like the plot in Q1 does. Similarly, the ACF plot does not have spikes anymore, showing no seasonality. The PACF plot shows more values fall into the significant range throughout the 40 lags compared to that in Q1.
 
 ## Modeling the seasonally adjusted or deseasonalized series
 
@@ -53,28 +103,47 @@ Using the $decompose()$ or $stl()$ and the $seasadj()$ functions create a series
 Run the ADF test and Mann Kendall test on the deseasonalized data from Q2. Report and explain the results.
 
 ```{r}
+summary(MannKendall(deseason_NG_gen))
 
+adf.test(deseason_NG_gen, alternative = "stationary")
 ```
+
+The results of the Mann Kendall test for deseasoned NG generation series reject the null (the series is stationary) and conclude that this series is not stationary and has a increasing trend (p<=2.22e-16, score=24196, n=240). The ADF test rejects the null hypothesis and reaches the same conclusion that this series is not stationary (p=0.01).
 
 ### Q4
 
 Using the plots from Q2 and test results from Q3 identify the ARIMA model parameters $p,d$ and $q$. Note that in this case because you removed the seasonal component prior to identifying the model you don't need to worry about seasonal component. Clearly state your criteria and any additional function in R you might use. DO NOT use the $auto.arima()$ function. You will be evaluated on ability to can read the plots and interpret the test results.
 
 ```{r}
+#how many difference needed
+ndiffs(deseason_NG_gen)
 
 ```
+
+The series has an increasing trend, so it needs a difference. Since the ndiffs() function gives a result of 1, d=1. The ACF plot decays exponentially, and the PACF cuts off after lag 1 (lag 2 only marginally significant, so assume cuts off after lag 1), indicating this is a AR process. Hence, p=1,q=0.  --> ARIMA(1,1,0)
 
 ### Q5
 
 Use $Arima()$ from package "forecast" to fit an ARIMA model to your series considering the order estimated in Q4. Should you allow for constants in the model, i.e., $include.mean = TRUE$ or $include.drift=TRUE$. **Print the coefficients** in your report. Hint: use the $cat()$ function to print.
 
-```{r}
+```{r arima model}
+arimaNG_deseas <- Arima(deseason_NG_gen, order = c(1,1,0),include.drift=TRUE)
 
+#check if differenced series needs another difference
+ndiffs(arimaNG_deseas$residuals)
+
+cat("The coefficients are",arimaNG_deseas$coef)
 ```
 
 ### Q6
 
 Now plot the residuals of the ARIMA fit from Q5 along with residuals ACF and PACF on the same window. You may use the $checkresiduals()$ function to automatically generate the three plots. Do the residual series look like a white noise series? Why?
+```{r plot residuals}
+checkresiduals(arimaNG_deseas, plot = TRUE)
+Pacf(arimaNG_deseas$residuals)
+```
+
+It looks like a white noise series from the time series plot since the values are oscillating randomly around 0. However, some of the ACF and PACF values are still beyond the significant range, indicating it is not a perfect white noise series.
 
 ## Modeling the original series (with seasonality)
 
@@ -83,18 +152,36 @@ Now plot the residuals of the ARIMA fit from Q5 along with residuals ACF and PAC
 Repeat Q4-Q6 for the original series (the complete series that has the seasonal component). Note that when you model the seasonal series, you need to specify the seasonal part of the ARIMA model as well, i.e., $P$, $D$ and $Q$.
 
 ```{r}
+#check how many differences needed
+nsdiffs(ts_NG_gen)
 
+#try fitting with 1 seasonal differencing
+arimaNG <- Arima(ts_NG_gen, order = c(2,0,0),seasonal = c(1,1,0),include.drift=TRUE)
+
+#check if needs further differencing
+ndiffs(arimaNG$residuals)
+
+cat("The coefficients are", arimaNG$coef)
 ```
 
+Based on the results from nsdiffs() and ndiffs(), d=0, D=1.For the non-seasonal lags, the ACF plot has a slow decay, and the PACF plot cuts off after lag 2. Therefore, this is an AR process, and p=2.For the seasonal lags, the ACF plot has multiple spikes and the PACF plot only has one spike, indicating this is a SAR process with P=1. -> ARIMA(2,0,0)(1,1,0)[12]
+
+```{r}
+checkresiduals(arimaNG)
+Pacf(arimaNG$residuals)
+```
+
+It looks like a white noise series because the time series plot looks random and has a mean of 0 while most of the ACF nad PACF values are within the significant range.
 
 ### Q8
 
 Compare the residual series for Q7 and Q6. Can you tell which ARIMA model is better representing the Natural Gas Series? Is that a fair comparison? Explain your response.
 
 ```{r}
-
+AIC(arimaNG)
+AIC(arimaNG_deseas)
 ```
-
+More ACF and PAF values of the second ARIMA model with seasonality are within the significant range compared to the first model without seasonality, meaning that the second one is a better model. Using AIC, I found that the second model has a lower AIC, indicating this is a fair comparison and the second model is a better model.
 
 ## Checking your model with the auto.arima()
 
@@ -105,8 +192,14 @@ Compare the residual series for Q7 and Q6. Can you tell which ARIMA model is bet
 Use the $auto.arima()$ command on the **deseasonalized series** to let R choose the model parameter for you. What's the order of the best ARIMA model? Does it match what you specified in Q4?
 
 ```{r}
+autofit_deseason_NG <- auto.arima(deseason_NG_gen, max.D = 0, max.P = 0, max.Q = 0)
+print(autofit_deseason_NG)
 
+forecast_deseason_NG <- forecast(object = autofit_deseason_NG, h = 36)
+plot(forecast_deseason_NG)
 ```
+
+ARIMA(1,1,1) with drift. I failed to identify the MA process and missed the q part in the model.
 
 
 ### Q10
@@ -114,6 +207,12 @@ Use the $auto.arima()$ command on the **deseasonalized series** to let R choose 
 Use the $auto.arima()$ command on the **original series** to let R choose the model parameters for you. Does it match what you specified in Q7?
 
 ```{r}
+autofit_NG <- auto.arima(ts_NG_gen)
+print(autofit_NG)
 
+forecast_NG <- forecast(object = autofit_NG, h = 36)
+plot(forecast_NG)
 ```
+
+ARIMA(1,0,0)(0,1,1)[12] with drift. I misidentified the SMA process as SAR process. I also misidentified the order of the AR process to be 2, which should be 1.
 
